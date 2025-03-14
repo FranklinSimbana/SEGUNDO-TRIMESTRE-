@@ -1,0 +1,65 @@
+from ST7735 import TFT
+from sysfont import sysfont
+from sdcard import SDCard
+import os
+from machine import SPI, Pin
+from dfplayermini import Player
+                                                                                                            
+# Configuración de SPI para la pantalla TFT
+spi_tft = SPI(2, baudrate=20000000, polarity=0, phase=0, sck=Pin(14), mosi=Pin(13), miso=Pin(12))
+
+# Inicializar la pantalla TFT
+tft = TFT(spi_tft, 16,17,18)
+tft.initr()
+tft.fill(TFT.BLACK)
+
+# Configuración de SPI para la tarjeta SD
+spi_sd = SPI(1, baudrate=10000000, polarity=0, phase=0, sck=Pin(18), mosi=Pin(23), miso=Pin(19))
+cs_sd = Pin(27, Pin.OUT)
+
+# Inicializar tarjeta SD
+sd = SDCard(spi_sd, cs_sd)
+os.mount(sd, '/sd')
+print("Archivos en la tarjeta SD:", os.listdir("/sd/img"))
+
+music = Player(pin_TX=1, pin_RX=3)
+music.module_wake()
+if music.is_playing() == 2:
+    fadeout(500)
+def display_bmp(file_path, display):
+    with open(file_path, 'rb') as f:
+        f.read(54)  # Saltar la cabecera BMP de 54 bytes
+        
+        width, height = 128, 128  # Tamaño de la pantalla
+        row_size = width * 3  # Cada píxel BMP tiene 3 bytes (RGB)
+        
+        for y in range(height):
+            row_data = f.read(row_size)
+            if not row_data:
+                break
+            # Convertir la fila de datos RGB a formato RGB565
+            rgb565_row = bytearray()
+            for i in range(0, len(row_data), 3):
+                r = row_data[i] >> 3
+                g = row_data[i + 1] >> 2
+                b = row_data[i + 2] >> 3
+                rgb565 = (r << 11) | (g << 5) | b
+                rgb565_row.extend(rgb565.to_bytes(2, 'big'))
+            
+            # Mostrar la fila en la pantalla
+            display._setwindowloc((0, y), (width - 1, y))
+            display._writedata(rgb565_row)
+
+# Mostrar la imagen en la pantalla TFT
+music.volume(15)
+music.loop1(1)
+display_bmp('/sd/img/a3.bmp', tft)
+#a.bmp  : anti
+#a1.bmp : prueba 1 (no funciona)
+#a2.bmp : prueba 2 (tampoco funciona, tamaño vertical mas que la pantalla)
+#a3.bmp : prueba 3 (funciona)
+#b.bmp  : prueba 4 (otra imagen no funciona por resolucion)
+#b1.bmp : prueba 5 (funciona)
+#LC.bmp : Logo del Colegio
+#LCR.bmp: Logo Club de Robotica
+#LAM.bmp: Logo Area de Mecatronica
